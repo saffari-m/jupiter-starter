@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
 
-export class VerifyDto {
+export class VerifyDTO {
   @IsString()
   @IsNotEmpty()
   @MinLength(11)

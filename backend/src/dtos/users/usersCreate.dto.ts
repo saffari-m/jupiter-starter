@@ -1,11 +1,5 @@
 import { IsString, IsNotEmpty, MinLength, MaxLength, IsBoolean, IsStrongPassword } from 'class-validator';
-
-export class UserDto {
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(11)
-  @MaxLength(11)
-  public mobile: string = '';
+export class UserCreateDTO {
   @IsString()
   @IsNotEmpty()
   @MinLength(3)
@@ -16,6 +10,11 @@ export class UserDto {
   @MinLength(5)
   @MaxLength(50)
   public lastName: string = '';
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(11)
+  @MaxLength(11)
+  public mobile: string = '';
   @IsStrongPassword()
   @IsNotEmpty()
   @MinLength(8)

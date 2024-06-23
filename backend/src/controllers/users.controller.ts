@@ -1,11 +1,12 @@
 import { Controller, Param, Body, Get, Post, Put, Delete, HttpCode, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { Container } from 'typedi';
-import { UserDto } from '@dtos/users.dto';
-import { NewUser, User } from '@interfaces/users.interface';
+import { UserDTO } from '@dtos/users/users.dto';
+import { User } from '@interfaces/users.interface';
 import { ValidationMiddleware } from '@middlewares/validation.middleware';
 import { UserService } from '@services/users.service';
 import { AuthMiddleware } from '@/middlewares/auth.middleware';
+import { UserCreateDTO } from '@/dtos/users/usersCreate.dto';
 
 @Controller()
 export class UserController {
@@ -30,11 +31,10 @@ export class UserController {
 
   @Post('/users')
   @HttpCode(201)
-  @UseBefore(ValidationMiddleware(UserDto))
+  @UseBefore(ValidationMiddleware(UserDTO))
   @OpenAPI({ summary: 'Create a new user' })
-  async createUser(@Body() userData: UserDto) {
-    const createdUser: NewUser = await this.user.createUser(userData);
-    return { data: createdUser, message: 'created' };
+  async createUser(@Body() userCreateDTO: UserCreateDTO) {
+    return { data: await this.user.createUser(userCreateDTO), message: 'created' };
   }
 
   // @Put('/users/:id')

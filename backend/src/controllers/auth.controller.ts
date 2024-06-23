@@ -1,38 +1,38 @@
 import { Response } from 'express';
 import { Controller, Req, Body, Post, UseBefore, HttpCode, Res } from 'routing-controllers';
 import { Container } from 'typedi';
-import { UserDto } from '@dtos/users.dto';
-import { RequestWithUser } from '@interfaces/auth.interface';
-import { User } from '@interfaces/users.interface';
-import { AuthMiddleware } from '@middlewares/auth.middleware';
+// import { RequestWithUser } from '@interfaces/auth.interface';
+// import { User } from '@interfaces/users.interface';
+// import { AuthMiddleware } from '@middlewares/auth.middleware';
 import { ValidationMiddleware } from '@middlewares/validation.middleware';
 import { AuthService } from '@services/auth.service';
-import { VerifyDto } from '@/dtos/verify.dto';
+import { VerifyDTO } from '@/dtos/auth/verify.dto';
+import { LoginDTO } from '@/dtos/auth/login.dto';
+import { SignupDTO } from '@/dtos/auth/signup.dto';
 
 @Controller()
 export class AuthController {
   public auth = Container.get(AuthService);
 
   @Post('/signup')
-  @UseBefore(ValidationMiddleware(UserDto))
+  @UseBefore(ValidationMiddleware(SignupDTO))
   @HttpCode(201)
-  async signUp(@Body() userData: UserDto) {
-    const signUpUserData: User = await this.auth.signup(userData);
-    return { data: signUpUserData, message: 'signup' };
+  async signUp(@Body() signupData: SignupDTO) {
+    return { data: await this.auth.signup(signupData), message: 'signup' };
   }
 
   @Post('/login')
-  @UseBefore(ValidationMiddleware(UserDto))
-  async logIn(@Res() res: Response, @Body() userData: UserDto) {
+  @UseBefore(ValidationMiddleware(LoginDTO))
+  async logIn(@Res() res: Response, @Body() userData: LoginDTO) {
     const { cookie, user } = await this.auth.login(userData);
 
     res.setHeader('Set-Cookie', [cookie]);
     return { data: user, message: 'login' };
   }
   @Post('/verify')
-  @UseBefore(ValidationMiddleware(VerifyDto))
-  async verify(@Res() res: Response, @Body() verifyData: VerifyDto) {
-    const { cookie, user } = await this.auth.loginWithToken(verifyData);
+  @UseBefore(ValidationMiddleware(VerifyDTO))
+  async verify(@Res() res: Response, @Body() verifyData: VerifyDTO) {
+    const { cookie, user } = await this.auth.loginWithOTPToken(verifyData);
 
     res.setHeader('Set-Cookie', [cookie]);
     return { data: user, message: 'login' };

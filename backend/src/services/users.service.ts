@@ -1,52 +1,50 @@
-// import { hash } from 'bcrypt';
 import { db } from '@/db';
 import { users } from '@/db/schema/users';
-import { UserDto } from '@dtos/users.dto';
 import { HttpException } from '@exceptions/httpException';
 import { NewUser, User } from '@interfaces/users.interface';
-import { hash } from 'bcrypt';
 import { eq } from 'drizzle-orm';
-import { Service } from 'typedi';
-import speakeasy from 'speakeasy';
-const getSecret = (): string => {
-  const secretObj = speakeasy.generateSecret({ length: 20 });
-  console.log(secretObj);
-  return secretObj.base32;
-};
+import Container, { Service } from 'typedi';
+import { UserCreateDTO } from '@/dtos/users/usersCreate.dto';
+import { UserModeltoDTO } from '@/mappings/user.mapper';
+import { UserDTO } from '@/dtos/users/users.dto';
+import { hashPassword } from '@/utils/password.utils';
+import { getSecret } from '@/utils/auth.utils';
+import { UserRepository } from '@/repositories/user.repository';
 
 @Service()
 export class UserService {
+  private userRepository = Container.get(UserRepository);
+
   public async findAllUser(limit: number = 10, offset: number = 0): Promise<User[]> {
-    const userList = db.select().from(users).limit(limit).offset(offset);
-    return userList;
+    return await this.userRepository.getList(offset, limit);
   }
 
   public async findUserById(userId: string): Promise<User> {
-    const findUser = await db.select().from(users).where(eq(users.id, userId));
+    const findUser = await this.userRepository.getById(userId);
     if (!findUser) throw new HttpException(409, "User doesn't exist");
 
-    return findUser[0];
+    return findUser;
   }
   public async findUserByMobileNumber(mobile: string): Promise<User> {
-    const findUser = await db.select().from(users).where(eq(users.mobile, mobile));
+    const findUser = await this.userRepository.getByMobile(mobile);
     if (!findUser) throw new HttpException(409, "User doesn't exist");
 
-    return findUser[0];
+    return findUser;
   }
 
-  public async createUser(userData: UserDto): Promise<NewUser> {
-    const findUser = await db.query.users.findFirst({
-      where: eq(users.mobile, userData.mobile),
-    });
-    if (findUser) throw new HttpException(409, `This phone number ${userData.mobile} already exists`);
+  public async createUser(userCreateDTO: UserCreateDTO): Promise<UserDTO> {
+    const findUser = await this.userRepository.getByMobile(userCreateDTO.mobile);
+    // db.query.users.findFirst({
+    //   where: eq(users.mobile, userData.mobile),
+    // });
+    if (findUser) throw new HttpException(409, `This phone number ${userCreateDTO.mobile} already exists`);
 
-    const userValues: NewUser = { ...userData, secret: '' };
-    userValues.password = await hash(userData.password, 10);
+    const userValues: NewUser = { ...userCreateDTO, secret: '' };
+    userValues.password = await hashPassword(userCreateDTO.password);
     userValues.secret = getSecret();
+    const createdUser = await this.userRepository.create(userValues);
 
-    const createdUser = await db.insert(users).values(userValues).returning();
-
-    return createdUser[0];
+    return UserModeltoDTO(createdUser);
   }
 
   // public async updateUser(userId: string, userData: UserDto): Promise<User[]> {

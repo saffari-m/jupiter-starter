@@ -1,64 +1,53 @@
-import { compare, hash } from 'bcrypt';
-import { sign } from 'jsonwebtoken';
 import Container, { Service } from 'typedi';
-import { SECRET_KEY } from '@config';
-import { UserDto } from '@dtos/users.dto';
 import { HttpException } from '@exceptions/httpException';
-import { DataStoredInToken, TokenData } from '@interfaces/auth.interface';
-import { User } from '@interfaces/users.interface';
-import { UserModel } from '@models/users.model';
-import { VerifyDto } from '@/dtos/verify.dto';
-import VerifiedUserModel from '@/models/verifiedUser.model';
-import { UserService } from './users.service';
-import speakeasy from 'speakeasy';
-
-const createToken = (user: User): TokenData => {
-  const dataStoredInToken: DataStoredInToken = { id: user.id };
-  const expiresIn: number = 60 * 60;
-
-  return { expiresIn, token: sign(dataStoredInToken, SECRET_KEY as string, { expiresIn }) };
-};
-const verifyOTPToken = (token: string, secret: string): boolean => {
-  return speakeasy.totp.verify({ secret: secret, encoding: 'base32', token: token });
-};
-
-const createCookie = (tokenData: TokenData): string => {
-  return `Authorization=${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn};`;
-};
+import { NewUser, User } from '@interfaces/users.interface';
+import { VerifyDTO } from '@/dtos/auth/verify.dto';
+import { LoginDTO } from '@/dtos/auth/login.dto';
+import { SignupDTO } from '@/dtos/auth/signup.dto';
+import { UserDTO } from '@/dtos/users/users.dto';
+import { UserModeltoDTO } from '@/mappings/user.mapper';
+import { UserCreateResponseDTO } from '@/dtos/users/userCreateResponse.dto';
+import { createCookie, getSecret, verifyOTPToken } from '@/utils/auth.utils';
+import { createToken } from '@/utils/jwt.utils';
+import { hashPassword, verifyPassword } from '@/utils/password.utils';
+import { UserRepository } from '@/repositories/user.repository';
 
 @Service()
 export class AuthService {
-  public userService = Container.get(UserService);
-  public async signup(userData: UserDto): Promise<User> {
-    const findUser: User = await this.userService.findUserByMobileNumber(userData.mobile);
-    if (findUser) throw new HttpException(409, `This mobile ${userData.mobile} already exists`);
+  public userRepository = Container.get(UserRepository);
 
-    const createUserData: User = (await this.userService.createUser(userData)) as User;
+  public async signup(signupData: SignupDTO): Promise<UserDTO> {
+    const findUser: User = await this.userRepository.getByMobile(signupData.mobile);
+    if (findUser) throw new HttpException(409, `This mobile ${signupData.mobile} already exists`);
 
-    return createUserData;
+    const userValues: NewUser = { ...signupData, secret: '' };
+    userValues.password = await hashPassword(userValues.password);
+    userValues.secret = getSecret();
+    const createdUser = await this.userRepository.create(userValues);
+    return UserModeltoDTO(createdUser);
   }
 
-  public async login(userData: UserDto): Promise<VerifiedUserModel> {
-    const findUser: User = await this.userService.findUserByMobileNumber(userData.mobile);
+  public async login(userData: LoginDTO): Promise<UserCreateResponseDTO> {
+    const findUser: User = await this.userRepository.getByMobile(userData.mobile);
     if (!findUser) throw new HttpException(409, `This mobile ${userData.mobile} was not found`);
 
-    const isPasswordMatching: boolean = await compare(userData.password, findUser.password);
+    const isPasswordMatching: boolean = await verifyPassword(userData.password, findUser.password);
     if (!isPasswordMatching) throw new HttpException(409, 'Password is not matching');
 
-    const tokenData = createToken(findUser);
+    const tokenData = createToken(findUser.id);
     const cookie = createCookie(tokenData);
-
-    return new VerifiedUserModel(cookie, findUser);
+    return new UserCreateResponseDTO(cookie, UserModeltoDTO(findUser));
   }
-  public async loginWithToken(verifyDto: VerifyDto): Promise<VerifiedUserModel> {
-    const findUser: User = await this.userService.findUserByMobileNumber(verifyDto.mobile);
-    if (!findUser) throw new HttpException(409, `This mobile ${verifyDto.mobile} was not found`);
 
-    if (!verifyOTPToken(verifyDto.token, findUser.secret)) throw new HttpException(409, `This token ${verifyDto.token} was invalid`);
+  public async loginWithOTPToken(verifyDTO: VerifyDTO): Promise<UserCreateResponseDTO> {
+    const findUser: User = await this.userRepository.getByMobile(verifyDTO.mobile);
+    if (!findUser) throw new HttpException(409, `This mobile ${verifyDTO.mobile} was not found`);
 
-    const tokenData = createToken(findUser);
+    if (!verifyOTPToken(verifyDTO.token, findUser.secret)) throw new HttpException(409, `This token ${verifyDTO.token} was invalid`);
+
+    const tokenData = createToken(findUser.id);
     const cookie = createCookie(tokenData);
-    return new VerifiedUserModel(cookie, findUser);
+    return new UserCreateResponseDTO(cookie, UserModeltoDTO(findUser));
   }
   // public async logout(userData: User): Promise<User> {
   //   const findUser: User = UserModel.find(user => user.email === userData.email && user.password === userData.password);
