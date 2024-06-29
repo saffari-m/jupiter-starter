@@ -7,10 +7,11 @@ import { SignupDTO } from '@/dtos/auth/signup.dto';
 import { UserDTO } from '@/dtos/users/users.dto';
 import { UserModeltoDTO } from '@/mappings/user.mapper';
 import { UserCreateResponseDTO } from '@/dtos/users/userCreateResponse.dto';
-import { createCookie, getSecret, verifyOTPToken } from '@/utils/auth.utils';
+import { createCookie, generateOTPToken, getSecret, verifyOTPToken } from '@/utils/auth.utils';
 import { createToken } from '@/utils/jwt.utils';
 import { hashPassword, verifyPassword } from '@/utils/password.utils';
 import { UserRepository } from '@/repositories/user.repository';
+import { SendOTPDTO } from '@/dtos/auth/send-otp';
 
 @Service()
 export class AuthService {
@@ -38,7 +39,11 @@ export class AuthService {
     const cookie = createCookie(tokenData);
     return new UserCreateResponseDTO(cookie, UserModeltoDTO(findUser));
   }
-
+  public async sendOTPToken(data: SendOTPDTO): Promise<string> {
+    const findUser: User = await this.userRepository.getByMobile(data.mobile);
+    if (!findUser) throw new HttpException(409, `This mobile ${data.mobile} was not found`);
+    return generateOTPToken(findUser.secret);
+  }
   public async loginWithOTPToken(verifyDTO: VerifyDTO): Promise<UserCreateResponseDTO> {
     const findUser: User = await this.userRepository.getByMobile(verifyDTO.mobile);
     if (!findUser) throw new HttpException(409, `This mobile ${verifyDTO.mobile} was not found`);
