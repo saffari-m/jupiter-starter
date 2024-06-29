@@ -9,6 +9,7 @@ import { AuthService } from '@services/auth.service';
 import { VerifyDTO } from '@/dtos/auth/verify.dto';
 import { LoginDTO } from '@/dtos/auth/login.dto';
 import { SignupDTO } from '@/dtos/auth/signup.dto';
+import { SendOTPDTO } from '@/dtos/auth/send-otp';
 
 @Controller()
 export class AuthController {
@@ -28,6 +29,12 @@ export class AuthController {
 
     res.setHeader('Set-Cookie', [cookie]);
     return { data: user, message: 'login' };
+  }
+  @Post('/otp')
+  @UseBefore(ValidationMiddleware(SendOTPDTO))
+  async sendOTP(@Res() res: Response, @Body() verifyData: SendOTPDTO) {
+    const otpToken = await this.auth.sendOTPToken(verifyData);
+    return { data: { token: otpToken }, message: 'OTP' };
   }
   @Post('/verify')
   @UseBefore(ValidationMiddleware(VerifyDTO))
