@@ -1,11 +1,9 @@
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { UserCreateDTO } from '@/dtos/users/usersCreate.dto';
 import { IRepository } from '@/interfaces/repository.interface';
 import { NewUser, User } from '@/interfaces/users.interface';
 import { isNullOrUndefined } from '@/utils/common.utils';
 import { eq } from 'drizzle-orm';
-import { query } from 'express';
 import { Service } from 'typedi';
 
 @Service()
